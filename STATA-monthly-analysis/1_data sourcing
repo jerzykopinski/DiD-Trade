@@ -1,25 +1,33 @@
-#Accesing the data from main database and transforming into STATA .dta file
-
+################################################################################
+# Description:
+# This script reads segmented Parquet files containing trade data, aggregates 
+# them to monthly totals by country pair and flow type, and saves the results 
+# as individual Parquet files. It then merges all yearly files into a single 
+# dataset and optionally exports it to STATA (.dta) format.
+#
+# Note: File paths have been anonymized for public sharing.
+################################################################################
 library(arrow)
 library(dplyr)
 
+# Clean up environment
 rm(list = ls())
-if(!is.null(dev.list())) dev.off()
-cat("\014")
+if (!is.null(dev.list())) dev.off()
+cat("\014")  # Clear console
 gc()
 
-# Define input and output directories (replace with your own paths)
+# Define input and output directories (replace with your actual paths)
 folder_path <- "path/to/database"
 output_folder <- "path/to/monthly_country/"
 
-# List and sort Parquet files
+# List and sort Parquet files by segment number
 files <- list.files(folder_path, pattern = "segment_\\d+\\.parquet$", full.names = TRUE)
 file_numbers <- as.numeric(gsub(".*segment_(\\d+)\\.parquet$", "\\1", files))
 file_list <- files[order(file_numbers)]
-years <- 2012:2024
+years <- 2012:2024  # Adjust if needed
 
-# Process each file to compute monthly trade totals
-for (i in 1:length(file_list)) {
+# Process each file: aggregate monthly trade totals
+for (i in seq_along(file_list)) {
   file_path <- file_list[i]
   data <- read_parquet(file_path)
   
@@ -32,11 +40,11 @@ for (i in 1:length(file_list)) {
   cat("Processed file:", i, "\n") 
 }
 
-# Merge all monthly files into one
-input_folder <- "path/to/monthly_country/"
+# Merge all monthly files into one dataset
+input_folder <- output_folder
 output_file <- file.path(input_folder, "full_monthly_country.parquet")
 
-file_list <- list.files(input_folder, full.names = TRUE)
+file_list <- list.files(input_folder, pattern = "\\.parquet$", full.names = TRUE)
 merged_table <- tibble()
 
 for (file in file_list) {
@@ -44,7 +52,7 @@ for (file in file_list) {
   merged_table <- bind_rows(merged_table, table)
 }
 
-# Save merged dataset
+# Save merged dataset as Parquet
 write_parquet(merged_table, output_file)
 
 # Optionally export to STATA format
