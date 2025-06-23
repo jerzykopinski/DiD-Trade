@@ -1,0 +1,100 @@
+NOTE: This code may take a few hours to compile.
+/******************************************************************************************
+* Description:
+* This script processes large monthly trade datasets by:
+* 1. Aggregating import/export data to annual level.
+* 2. Filtering and merging segmented files.
+* 3. Creating final datasets with treatment indicators for sanctions analysis.
+*
+* Note: File paths and identifiers have been anonymized for public sharing.
+******************************************************************************************/
+
+// ========================================================================================
+// PART 1: AGGREGATE IMPORT DATA TO YEARLY LEVEL
+// ========================================================================================
+use "path_to_data/import/full_monthly_goods_large_combined_filtered_import.dta", clear
+drop if missing(PARTNER_ISO)
+gen year = floor(PERIOD / 100)
+
+gen real_value = exp(ln_TOTAL_VALUE)
+drop DATA_SANCTIONED
+
+collapse (sum) real_value ///
+         (max) SANCTIONED POST RUSSIA, ///
+         by(DECLARANT_ISO PARTNER_ISO KOD_HS year)
+
+gen ln_TOTAL_VALUE_y = ln(real_value)
+drop real_value
+
+save "path_to_data/import/full_monthly_goods_large_combined_filtered_import_YEARLY.dta", replace
+
+// ========================================================================================
+// PART 2: AGGREGATE EXPORT DATA TO YEARLY LEVEL
+// ========================================================================================
+use "path_to_data/eksport/full_monthly_goods_large_combined_filtered_eksport.dta", clear
+drop if missing(PARTNER_ISO)
+gen year = floor(PERIOD / 100)
+
+gen real_value = exp(ln_TOTAL_VALUE)
+drop DATA_SANCTIONED
+
+collapse (sum) real_value ///
+         (max) SANCTIONED POST RUSSIA, ///
+         by(DECLARANT_ISO PARTNER_ISO KOD_HS year)
+
+gen ln_TOTAL_VALUE_y = ln(real_value)
+drop real_value
+
+save "path_to_data/eksport/full_monthly_goods_large_combined_filtered_eksport_YEARLY.dta", replace
+
+// ========================================================================================
+// PART 3: FILTER AND MERGE SEGMENTED EXPORT FILES
+// ========================================================================================
+forvalues i = 1/7 {
+    use "path_to_data/full_monthly_goods_large_part_`i'_with_sanctions.dta", clear
+    keep if FLOW == 2
+    drop KOD_HS_2 KOD_HS_4 KOD_HS_6
+    compress
+
+    // Define POST indicator
+    replace DATA_SANCTIONED = 0 if missing(SANCTIONED)
+    gen POST = (DATA_SANCTIONED >= PERIOD)
+
+    // Define RUSSIA indicator
+    gen RUSSIA = (PARTNER_ISO == "RU")
+
+    // Harmonize SANCTIONED variable
+    replace SANCTIONED = 0 if missing(SANCTIONED)
+    gen temp_sanctioned = (SANCTIONED == 1)
+    bysort KOD_HS: egen ever_sanctioned = max(temp_sanctioned)
+    replace SANCTIONED = ever_sanctioned
+    drop temp_sanctioned ever_sanctioned
+    compress
+
+    save "path_to_data/eksport/full_monthly_goods_large_part_`i'_with_sanctions_filtered_eksport.dta", replace
+}
+
+// Merge all filtered export files
+clear
+use "path_to_data/eksport/full_monthly_goods_large_part_1_with_sanctions_filtered_eksport.dta", clear
+compress
+
+forvalues i = 2/7 {
+    append using "path_to_data/eksport/full_monthly_goods_large_part_`i'_with_sanctions_filtered_eksport.dta"
+}
+compress
+
+// Final adjustments to SANCTIONED and POST
+replace SANCTIONED = 0 if missing(SANCTIONED)
+gen temp_sanctioned = (SANCTIONED == 1)
+bysort KOD_HS: egen ever_sanctioned = max(temp_sanctioned)
+replace SANCTIONED = ever_sanctioned
+drop temp_sanctioned ever_sanctioned
+
+gen temp_data = DATA_SANCTIONED
+bysort KOD_HS: egen date_sanctioned = max(temp_data)
+gen POST = (date_sanctioned <= PERIOD)
+drop temp_data date_sanctioned
+compress
+
+save "path_to_data/eksport/full_monthly_goods_large_combined_filtered_eksport.dta", replace
