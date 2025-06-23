@@ -22,7 +22,7 @@ To assess the impact of EU sanctions on Russia, the dataset was enriched with:
 - **Sanctioned goods lists** and timelines from EUR-Lex, the EU’s legal database.
 - **Control variables** such as GDP per capita and population from the **World Bank** and **IMF**.
 
-The final dataset contains over **650 million monthly observations**, each uniquely identifying trade flows by country pair, product, and time.
+The final dataset contains over **650 million monthly observations**, each uniquely identifying trade flows by country pair, product, and time. Due to size, database is split into 15 files in .parquet format.
 
 ---
 
@@ -42,3 +42,30 @@ The final dataset contains over **650 million monthly observations**, each uniqu
 
 5. **Cleaning & Structuring**  
    Data is cleaned and filtered using `dplyr`, `tidyr`, and `stringr` to ensure consistency and prepare it for econometric analysis.
+
+
+## 2. Sourcing The Data
+
+Due to the large size of the full trade database (over 650 million records), data is not processed all at once. Instead, subsets are extracted on demand for specific econometric analyses. This modular approach ensures efficient computation and memory usage.
+
+For example, when analyzing monthly intra-EU trade flows, only the relevant subset of data is pulled from the full database, cleaned, and saved as a dedicated `.dta` file containing only the necessary observations.
+
+### Monthly Data
+
+Monthly data is extracted from segmented `.parquet` files, each representing a specific year. These files are grouped by:
+- Reporting country (`DECLARANT_ISO`)
+- Partner country (`PARTNER_ISO`)
+- Trade flow direction (`FLOW`)
+- Month (`PERIOD`)
+- Product (`HS CODE`)
+
+The data is aggregated to produce a panel of monthly bilateral trade values. This panel is then saved in both `.parquet` and `.dta` formats for use in STATA-based econometric models.
+
+### Yearly Data
+
+For broader analyses, such as long-term trends or yearly comparisons, the same segmented files are aggregated by year. The process involves:
+- Summing trade values across all months within each year
+- Grouping by country pairs and trade flow
+- Exporting the results as yearly `.dta` files
+
+This structure allows flexible access to both high-frequency (monthly) and low-frequency (yearly) trade data.
