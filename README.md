@@ -1,16 +1,20 @@
 # DiD-Trade
-Here is the Repository for *Difference in difference* model for COMEXT trade data, used in analysis of EU Economic Sanctions on Russia
+
+Here is the Repository for *Difference-in-Differences* model for COMEXT trade data, used in analysis of EU Economic Sanctions on Russia.
 
 This repository contains the code and resources used in the master's thesis titled:
 
 **"Empirical analysis of the effectiveness of European Union economic sanctions against the Russian Federation in 2022–2024"**
 
+---
+
 ## 📘 Project Overview
 
 This study investigates the impact of EU-imposed economic sanctions on trade with Russia. Using the **Difference-in-Differences (DiD)** methodology and trade data from **Eurostat Comext**, the analysis focuses on the direct effects of sanctions on trade flows.
 
-Code was compiled using R and STATA. Data comes from public Eurostat COMEXT database.
+Code was compiled using **R** and **STATA**. Data comes from the public **Eurostat COMEXT** database.
 
+---
 
 ## 1. Getting The Data
 
@@ -22,7 +26,7 @@ To assess the impact of EU sanctions on Russia, the dataset was enriched with:
 - **Sanctioned goods lists** and timelines from EUR-Lex, the EU’s legal database.
 - **Control variables** such as GDP per capita and population from the **World Bank** and **IMF**.
 
-The final dataset contains over **650 million monthly observations**, each uniquely identifying trade flows by country pair, product, and time. Due to size, database is split into 15 files in .parquet format.
+The final dataset contains over **650 million monthly observations**, each uniquely identifying trade flows by country pair, product, and time. Due to size, the database is split into 15 files in `.parquet` format.
 
 ---
 
@@ -43,6 +47,7 @@ The final dataset contains over **650 million monthly observations**, each uniqu
 5. **Cleaning & Structuring**  
    Data is cleaned and filtered using `dplyr`, `tidyr`, and `stringr` to ensure consistency and prepare it for econometric analysis.
 
+---
 
 ## 2. Sourcing The Data
 
@@ -69,3 +74,61 @@ For broader analyses, such as long-term trends or yearly comparisons, the same s
 - Exporting the results as yearly `.dta` files
 
 This structure allows flexible access to both high-frequency (monthly) and low-frequency (yearly) trade data.
+
+---
+
+## 3. Estimation
+
+The core of the analysis relies on **Difference-in-Differences (DiD)** and **event study** models to estimate the causal impact of EU sanctions on trade with Russia and potential diversion partners. Estimations are performed using **STATA**, with data pre-processed in **R**.
+
+### 📐 Econometric Strategy
+
+The estimation strategy includes:
+
+- **Baseline DiD models** comparing trade flows with Russia before and after the imposition of sanctions.
+- **Extended DiD models** with control variables such as GDP, population, and trade openness.
+- **Event study models** to capture the dynamic effects of sanctions over time.
+- **Country-specific DiD regressions** to assess heterogeneous treatment effects across EU member states.
+- **Product-level analysis** using HS codes to evaluate the impact on sanctioned vs. non-sanctioned goods.
+
+### 🧮 Model Implementation
+
+#### Panel Setup
+
+All models are estimated on **panel data** structured by:
+- Country pairs (`DECLARANT_ISO`, `PARTNER_ISO`)
+- Time (`Year` or `Month`)
+- Product (`HS Code`, for product-level models)
+
+Panel identifiers are created using `egen group()` and declared with `xtset`.
+
+#### Baseline DiD
+
+```stata
+xtdidregress (ln_TOTAL_VALUE ln_DECLARANT_GDP ln_PARTNER_GDP ln_DECLARANT_POPULATION ln_PARTNER_POPULATION) ///
+              (TREATMENT), group(PAIR_ID) time(Year)
+```
+
+Where `TREATMENT` is defined as trade with Russia after February 2022.
+
+#### Country-Specific DiD
+
+A looped estimation is performed for each partner country to assess the **Average Treatment Effect on the Treated (ATET)** individually. Results are exported and visualized.
+
+#### Event Study
+
+To explore the **temporal dynamics** of the treatment effect, an event study framework is implemented using `reghdfe`:
+
+```stata
+reghdfe ln_TOTAL_VALUE pre* post*, absorb(PAIR_ID DATE) cluster(PAIR_ID)
+```
+
+Where `pre*` and `post*` are dummy variables for each month before and after the sanctions.
+
+The results are exported to `.txt` and `.csv` files and visualized using `twoway` plots with confidence intervals.
+
+### 📊 Output
+
+- **Regression tables** are saved in `.txt` and `.csv` formats using `esttab`.
+- **Event study plots** are exported as `.jpg` files showing the evolution of trade effects over time.
+- **Final datasets** are saved in `.dta` and `.parquet` formats for reproducibility.
