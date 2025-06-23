@@ -1,3 +1,5 @@
+#Loop for accesing the Easy Comext api and downloading bulk data
+
 rm(list = ls())
 if(!is.null(dev.list())) dev.off()
 cat("\014")
