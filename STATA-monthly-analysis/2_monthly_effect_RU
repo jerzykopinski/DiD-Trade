@@ -1,0 +1,85 @@
+// ------------------------------------------------------------
+// DATA PREPARATION AND PANEL REGRESSION ANALYSIS (DiD MODEL)
+// ------------------------------------------------------------
+
+// Load dataset (replace with your actual path)
+use "path_to_data/full_monthly_country_explanatory.dta", clear
+
+// Rename variable for clarity
+rename total_value TOTAL_VALUE
+
+// Keep only import flows (FLOW == 2)
+keep if FLOW == 2
+
+// Aggregate data by country pair and period
+collapse (sum) TOTAL_VALUE ///
+         (mean) DECLARANT_GDP PARTNER_GDP DECLARANT_TRADE PARTNER_TRADE DECLARANT_POPULATION PARTNER_POPULATION, ///
+         by(DECLARANT_ISO PARTNER_ISO PERIOD)
+
+// Create a monthly date variable from PERIOD
+gen DATE = ym(floor(PERIOD / 100), mod(PERIOD, 100))
+format DATE %tm
+
+// Reorder variables for clarity
+order PERIOD DATE DECLARANT_ISO PARTNER_ISO TOTAL_VALUE DECLARANT_GDP PARTNER_GDP DECLARANT_TRADE PARTNER_TRADE DECLARANT_POPULATION PARTNER_POPULATION
+
+// Log-transform key variables to reduce skewness
+gen ln_TOTAL_VALUE = ln(TOTAL_VALUE + 1)
+gen ln_DECLARANT_GDP = ln(DECLARANT_GDP + 1)
+gen ln_PARTNER_GDP = ln(PARTNER_GDP + 1)
+gen ln_DECLARANT_POPULATION = ln(DECLARANT_POPULATION + 1)
+gen ln_PARTNER_POPULATION = ln(PARTNER_POPULATION + 1)
+
+// Convert trade values to shares
+gen share_DECLARANT_TRADE = DECLARANT_TRADE / 100
+gen share_PARTNER_TRADE = PARTNER_TRADE / 100
+
+// Drop raw variables no longer needed
+drop TOTAL_VALUE DECLARANT_GDP PARTNER_GDP DECLARANT_TRADE PARTNER_TRADE DECLARANT_POPULATION PARTNER_POPULATION
+drop ln_DECLARANT_GDP ln_PARTNER_GDP ln_DECLARANT_POPULATION ln_PARTNER_POPULATION share_DECLARANT_TRADE share_PARTNER_TRADE
+
+// ---------------------------------------------
+// DEFINE TREATMENT VARIABLES FOR DiD ANALYSIS
+// ---------------------------------------------
+
+// Post-treatment period starts from February 2022
+gen POST = DATE >= tm(2022m2)
+
+// Define treatment group: trade with Russia
+gen RUSSIA = PARTNER_ISO == "RU"
+
+// Interaction term for DiD
+gen TREATMENT = POST * RUSSIA
+// ---------------------------------------------
+// FIXED EFFECTS PANEL REGRESSION (DiD MODEL)
+// ---------------------------------------------
+
+// Create unique identifier for each country pair
+egen PAIR_ID = group(DECLARANT_ISO PARTNER_ISO)
+
+// Declare panel structure
+xtset PAIR_ID DATE
+
+// Run DiD regression with fixed effects
+xtdidregress (ln_TOTAL_VALUE) (TREATMENT), group(PAIR_ID) time(DATE)
+eststo model1
+
+// ---------------------------------------------
+// EXPORT RESULTS TO TEXT FILES
+// ---------------------------------------------
+
+// Export single model result
+esttab model1 using "results_DiD.txt", replace ///
+    cells(b(star fmt(3)) p(fmt(3))) ///
+    title("Estimation Results: General Model") ///
+    label varlabels(_cons "Constant") ///
+    mtitles("DiD Effect") ///
+    nonotes
+
+// Export multiple models (if available)
+esttab model1 model2 model3 model4 model5 model6 using "results_RU_DiD.txt", replace ///
+    cells(b(star fmt(3)) p(par fmt(3))) ///
+    title("Estimation Results: General Model") ///
+    label varlabels(_cons "Constant") ///
+    mtitles("Model 1" "Model 2" "Model 3" "Model 4" "Model 5" "Model 6") ///
+    nonotes
