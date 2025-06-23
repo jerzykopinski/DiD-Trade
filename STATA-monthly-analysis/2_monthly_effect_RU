@@ -1,5 +1,14 @@
+/******************************************************************************************
+* Description:
+* This script prepares monthly panel data and performs a Difference-in-Differences (DiD) 
+* regression to estimate the effect of trade sanctions on bilateral trade flows. 
+* The analysis focuses on imports and uses fixed effects at the country-pair level.
+*
+* Note: File paths and identifiers have been anonymized for public sharing.
+******************************************************************************************/
+
 // ------------------------------------------------------------
-// DATA PREPARATION AND PANEL REGRESSION ANALYSIS (DiD MODEL)
+// DATA PREPARATION AND TRANSFORMATION
 // ------------------------------------------------------------
 
 // Load dataset (replace with your actual path)
@@ -8,7 +17,7 @@ use "path_to_data/full_monthly_country_explanatory.dta", clear
 // Rename variable for clarity
 rename total_value TOTAL_VALUE
 
-// Keep only import flows (FLOW == 2)
+// Keep only import flows
 keep if FLOW == 2
 
 // Aggregate data by country pair and period
@@ -20,7 +29,7 @@ collapse (sum) TOTAL_VALUE ///
 gen DATE = ym(floor(PERIOD / 100), mod(PERIOD, 100))
 format DATE %tm
 
-// Reorder variables for clarity
+// Reorder variables for readability
 order PERIOD DATE DECLARANT_ISO PARTNER_ISO TOTAL_VALUE DECLARANT_GDP PARTNER_GDP DECLARANT_TRADE PARTNER_TRADE DECLARANT_POPULATION PARTNER_POPULATION
 
 // Log-transform key variables to reduce skewness
@@ -30,19 +39,19 @@ gen ln_PARTNER_GDP = ln(PARTNER_GDP + 1)
 gen ln_DECLARANT_POPULATION = ln(DECLARANT_POPULATION + 1)
 gen ln_PARTNER_POPULATION = ln(PARTNER_POPULATION + 1)
 
-// Convert trade values to shares
+// Convert trade values to shares (optional, not used in regression)
 gen share_DECLARANT_TRADE = DECLARANT_TRADE / 100
 gen share_PARTNER_TRADE = PARTNER_TRADE / 100
 
-// Drop raw variables no longer needed
+// Drop raw and unused variables
 drop TOTAL_VALUE DECLARANT_GDP PARTNER_GDP DECLARANT_TRADE PARTNER_TRADE DECLARANT_POPULATION PARTNER_POPULATION
 drop ln_DECLARANT_GDP ln_PARTNER_GDP ln_DECLARANT_POPULATION ln_PARTNER_POPULATION share_DECLARANT_TRADE share_PARTNER_TRADE
 
-// ---------------------------------------------
+// ------------------------------------------------------------
 // DEFINE TREATMENT VARIABLES FOR DiD ANALYSIS
-// ---------------------------------------------
+// ------------------------------------------------------------
 
-// Post-treatment period starts from February 2022
+// Define post-treatment period (from February 2022)
 gen POST = DATE >= tm(2022m2)
 
 // Define treatment group: trade with Russia
@@ -50,9 +59,10 @@ gen RUSSIA = PARTNER_ISO == "RU"
 
 // Interaction term for DiD
 gen TREATMENT = POST * RUSSIA
-// ---------------------------------------------
+
+// ------------------------------------------------------------
 // FIXED EFFECTS PANEL REGRESSION (DiD MODEL)
-// ---------------------------------------------
+// ------------------------------------------------------------
 
 // Create unique identifier for each country pair
 egen PAIR_ID = group(DECLARANT_ISO PARTNER_ISO)
@@ -64,9 +74,9 @@ xtset PAIR_ID DATE
 xtdidregress (ln_TOTAL_VALUE) (TREATMENT), group(PAIR_ID) time(DATE)
 eststo model1
 
-// ---------------------------------------------
+// ------------------------------------------------------------
 // EXPORT RESULTS TO TEXT FILES
-// ---------------------------------------------
+// ------------------------------------------------------------
 
 // Export single model result
 esttab model1 using "results_DiD.txt", replace ///
