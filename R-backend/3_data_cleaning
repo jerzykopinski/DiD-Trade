@@ -1,1 +1,78 @@
+library(httr)
+library(readr)
+library(haven)
+library(archive)
+library(datasets)
+library(dplyr)
+library(arrow)
+library(crayon)
+library(tidyr)
+library(stringr)
+library(data.table)
+
+rm(list = ls())
+if(!is.null(dev.list())) dev.off()
+cat("\014")
+
+# Set working directories (replace with your own paths)
+setwd("path/to/temp_comext_files")
+output_dir <- "path/to/database"
+
+# Load and clean a single file
+data <- read_parquet("segment_11.parquet")
+output_file <- file.path(output_dir, "segment_11.parquet")
+
+# Filter out unwanted product sections
+clean_data <- data %>% filter(!PRODUCT_SECTION %in% c("XX", "TO"))
+
+# Remove UK data
+clean_data <- clean_data %>% filter(DECLARANT_ISO != "GB")
+
+# Check for missing partner country codes (e.g., Belarus)
+bel_test <- clean_data %>% filter(is.na(PARTNER_ISO))
+
+# Save cleaned data
+write_parquet(clean_data, output_file)
+
+# Check for numeric-only product codes
+all_digits_nc <- all(grepl("^[0-9]+$", clean_data$PRODUCT_NC))
+all_digits_cpa <- all(grepl("^[0-9]+$", clean_data$PRODUCT_CPA2_1))
+
+# Check for missing values
+any_na_value <- any(is.na(clean_data$VALUE_IN_EUROS))
+any_na_quantity <- any(is.na(clean_data$QUANTITY_IN_KG))
+any_na_sup_quantity <- any(is.na(clean_data$SUP_QUANTITY))
+
+# Check data types
+is_numeric_value <- is.numeric(clean_data$VALUE_IN_EUROS)
+
+# Loop through multiple segments
+for (i in 9:15) {
+  file <- paste0("segment_", i, ".parquet")
+  data <- read_parquet(file)
+  
+  clean_data <- data %>% 
+    filter(!PRODUCT_SECTION %in% c("XX", "TO")) %>%
+    filter(DECLARANT_ISO != "GB")
+  
+  output_file <- file.path(output_dir, paste0("segment_", i, ".parquet"))
+  write_parquet(clean_data, output_file)
+  cat(green("Processed segment:"), i, "\n")
+  
+  rm(data, clean_data)
+  gc()
+}
+
+# Extract unique values from each column
+columns <- ncol(clean_data)
+unique_values_list <- vector("list", columns)
+
+for (i in 1:columns) {
+  unique_values_list[[i]] <- unique(clean_data[, i])
+}
+
+for (i in 1:length(unique_values_list)) {
+  frame_name <- paste0("col", i)
+  assign(frame_name, data.frame(unique_values = unique_values_list[[i]]))
+}
 
