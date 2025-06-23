@@ -1,0 +1,4 @@
+This folder contains two files written in the R programming language. The code can be replicated to download the current trade database for all EU countries.
+
+1) comext_api – contains instructions on how to access the EasyComext API and download the data.
+2) data_merging – contains instructions on how to clean and manage the acquired big data
