@@ -1,1 +1,46 @@
+#Loop for unpacking and merging the bulk data from COMEXT
+
+library(arrow)
+library(data.table)
+
+rm(list = ls())
+if(!is.null(dev.list())) dev.off()
+cat("\014")
+gc()
+
+# Ścieżki do folderów (zmień na własne lokalizacje)
+input_directory <- "path/to/your/database"
+output_file <- "path/to/your/full_database.parquet"
+
+files <- list.files(input_directory, pattern = "segment_\\d+\\.parquet$", full.names = TRUE)
+file_numbers <- as.numeric(gsub(".*segment_(\\d+)\\.parquet$", "\\1", files))
+files <- files[order(file_numbers)]
+
+# Zmienna do sprawdzenia, czy plik wyjściowy istnieje
+output_exists <- FALSE
+
+# Przetwarzanie każdego pliku
+for (file in files) {
+  cat("Processing file:", basename(file), "\n")
+  
+  # Wczytaj aktualny plik Parquet
+  current_data <- read_parquet(file)
+  
+  # Zapisz lub połącz z plikiem wyjściowym
+  if (!output_exists) {
+    write_parquet(current_data, output_file)
+    output_exists <- TRUE
+  } else {
+    existing_data <- read_parquet(output_file)
+    combined_data <- rbind(existing_data, current_data)
+    write_parquet(combined_data, output_file)
+  }
+  
+  rm(current_data)
+  gc()
+  
+  cat("Completed processing:", basename(file), "\n")
+}
+
+cat("Merger completed. Output saved to:", output_file, "\n")
 
