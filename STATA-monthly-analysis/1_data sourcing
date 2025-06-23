@@ -1,0 +1,51 @@
+#Accesing the data from main database and transforming into STATA .dta file
+
+library(arrow)
+library(dplyr)
+
+rm(list = ls())
+if(!is.null(dev.list())) dev.off()
+cat("\014")
+gc()
+
+# Define input and output directories (replace with your own paths)
+folder_path <- "path/to/database"
+output_folder <- "path/to/monthly_country/"
+
+# List and sort Parquet files
+files <- list.files(folder_path, pattern = "segment_\\d+\\.parquet$", full.names = TRUE)
+file_numbers <- as.numeric(gsub(".*segment_(\\d+)\\.parquet$", "\\1", files))
+file_list <- files[order(file_numbers)]
+years <- 2012:2024
+
+# Process each file to compute monthly trade totals
+for (i in 1:length(file_list)) {
+  file_path <- file_list[i]
+  data <- read_parquet(file_path)
+  
+  monthly_totals <- data %>%
+    group_by(PERIOD, DECLARANT_ISO, PARTNER_ISO, FLOW) %>%
+    summarize(total_value = sum(VALUE_IN_EUROS), .groups = "drop")
+  
+  output_file <- file.path(output_folder, paste0("monthly_country_", years[i], ".parquet"))
+  write_parquet(monthly_totals, output_file)
+  cat("Processed file:", i, "\n") 
+}
+
+# Merge all monthly files into one
+input_folder <- "path/to/monthly_country/"
+output_file <- file.path(input_folder, "full_monthly_country.parquet")
+
+file_list <- list.files(input_folder, full.names = TRUE)
+merged_table <- tibble()
+
+for (file in file_list) {
+  table <- read_parquet(file)
+  merged_table <- bind_rows(merged_table, table)
+}
+
+# Save merged dataset
+write_parquet(merged_table, output_file)
+
+# Optionally export to STATA format
+write_dta(merged_table, file.path(input_folder, "full_monthly_country.dta"))
