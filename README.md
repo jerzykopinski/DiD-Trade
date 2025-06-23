@@ -8,7 +8,7 @@ This repository contains the code and resources used in the master's thesis titl
 
 ---
 
-## 📘 Project Overview
+## Project Overview
 
 This study investigates the impact of EU-imposed economic sanctions on trade with Russia. Using the **Difference-in-Differences (DiD)** methodology and trade data from **Eurostat Comext**, the analysis focuses on the direct effects of sanctions on trade flows.
 
@@ -18,7 +18,7 @@ Code was compiled using **R** and **STATA**. Data comes from the public **Eurost
 
 ## 1. Getting The Data
 
-### 📊 Data Description
+### Data Description
 
 This project uses monthly international trade data from **Eurostat Comext** (2012–2024), covering both intra-EU and extra-EU trade flows. The dataset is structured by **Harmonized System (HS)** product codes and includes trade value, reporting and partner countries, trade type, and product classification.
 
@@ -30,7 +30,7 @@ The final dataset contains over **650 million monthly observations**, each uniqu
 
 ---
 
-### 🔄 Data Access & Processing Workflow
+### Data Access & Processing Workflow
 
 1. **Connecting to Eurostat Comext**  
    Data is accessed via the Eurostat Comext dissemination API, which provides monthly trade files in `.7z` format.
@@ -81,7 +81,7 @@ This structure allows flexible access to both high-frequency (monthly) and low-f
 
 The core of the analysis relies on **Difference-in-Differences (DiD)** and **event study** models to estimate the causal impact of EU sanctions on trade with Russia and potential diversion partners. Estimations are performed using **STATA**, with data pre-processed in **R**.
 
-### 📐 Econometric Strategy
+### Econometric Strategy
 
 The estimation strategy includes:
 
@@ -91,7 +91,7 @@ The estimation strategy includes:
 - **Country-specific DiD regressions** to assess heterogeneous treatment effects across EU member states.
 - **Product-level analysis** using HS codes to evaluate the impact on sanctioned vs. non-sanctioned goods.
 
-### 🧮 Model Implementation
+### Model Implementation
 
 #### Panel Setup
 
@@ -125,9 +125,7 @@ reghdfe ln_TOTAL_VALUE pre* post*, absorb(PAIR_ID DATE) cluster(PAIR_ID)
 
 Where `pre*` and `post*` are dummy variables for each month before and after the sanctions.
 
-The results are exported to `.txt` and `.csv` files and visualized using `twoway` plots with confidence intervals.
-
-### 📊 Output
+### Output
 
 - **Regression tables** are saved in `.txt` and `.csv` formats using `esttab`.
 - **Event study plots** are exported as `.jpg` files showing the evolution of trade effects over time.
