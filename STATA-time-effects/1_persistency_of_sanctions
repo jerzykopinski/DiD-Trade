@@ -1,0 +1,155 @@
+// ------------------------------------------------------------
+// EVENT STUDY: SANCTIONS EFFECT ON EXPORTS TO RUSSIA
+// ------------------------------------------------------------
+
+// Load dataset (replace with actual path)
+use "path_to_data/efekty_czasowe.dta", clear
+
+// Filter for exports only
+keep if FLOW == 2
+
+// Create event time variable (months since Feb 2022)
+gen periods_since_treatment = .
+replace periods_since_treatment = (DATE - tm(2022m2)) if RUSSIA == 1
+
+// Generate pre-treatment dummies (excluding reference period: pre1)
+forvalues i = 1/12 {
+    gen pre`i' = (periods_since_treatment == -`i' & RUSSIA == 1)
+}
+drop pre1  // Reference category
+
+// Generate post-treatment dummies
+forvalues i = 0/30 {
+    gen post`i' = (periods_since_treatment == `i' & RUSSIA == 1)
+}
+
+// Define panel structure
+egen PAIR_ID = group(DECLARANT_ISO PARTNER_ISO)
+xtset PAIR_ID DATE
+
+// Run event study regression with fixed effects
+reghdfe ln_TOTAL_VALUE pre* post*, absorb(PAIR_ID DATE) cluster(PAIR_ID)
+estimates store export_effects
+
+// Save results to text file
+file open myfile using "results_table.txt", write append
+file write myfile "EXPORT RESULTS:" _n _n
+file write myfile "Variable   Coef.   Std. Err.   t-stat   p-value   [95% Conf. Interval]" _n
+file write myfile "---------------------------------------------------------------" _n
+
+foreach var of varlist pre* post* {
+    local coef = _b[`var']
+    local se = _se[`var']
+    local t = _b[`var'] / _se[`var']
+    local p = 2 * ttail(e(df_r), abs(`t'))
+    local lb = `coef' - 1.96 * `se'
+    local ub = `coef' + 1.96 * `se'
+    file write myfile "`var'" _col(12) %9.4f (`coef') _col(26) %9.4f (`se') _col(38) %6.2f (`t') _col(47) %7.4f (`p') _col(57) %9.4f (`lb') _col(69) %9.4f (`ub') _n
+}
+
+// Prepare data for export plot
+generate period = _n - 13 in 1/37  // -12 to 24
+generate effect = .
+generate ci_lower = .
+generate ci_upper = .
+
+local i = 1
+forvalues t = -12/-2 {
+    replace effect = _b[pre`=abs(`t')'] in `i'
+    replace ci_lower = effect - 1.96 * _se[pre`=abs(`t')'] in `i'
+    replace ci_upper = effect + 1.96 * _se[pre`=abs(`t')'] in `i'
+    local i = `i' + 1
+}
+forvalues t = 0/24 {
+    replace effect = _b[post`t'] in `=`t'+12'
+    replace ci_lower = effect - 1.96 * _se[post`t'] in `=`t'+12'
+    replace ci_upper = effect + 1.96 * _se[post`t'] in `=`t'+12'
+}
+
+// Plot export effects
+twoway (rarea ci_lower ci_upper period, color(gs12)) ///
+       (connected effect period, lcolor(blue) mcolor(blue) msymbol(circle)), ///
+       xline(0, lpattern(dash)) yline(0) ///
+       xlabel(-12(3)24) ylabel(-2(.5)1) ///
+       xtitle("Months since sanctions") ///
+       ytitle("Sanction effect (ln)") ///
+       title("Dynamic Effects of Sanctions on EU Exports to Russia") ///
+       legend(order(2 1) position(3))
+graph export "export_time_effect.jpg", replace
+
+
+// ------------------------------------------------------------
+// EVENT STUDY: SANCTIONS EFFECT ON IMPORTS FROM RUSSIA
+// ------------------------------------------------------------
+
+use "path_to_data/efekty_czasowe.dta", clear
+keep if FLOW == 1
+
+// Create event time variable
+gen periods_since_treatment = .
+replace periods_since_treatment = (DATE - tm(2022m2)) if RUSSIA == 1
+
+// Generate pre-treatment dummies (excluding pre1)
+forvalues i = 1/12 {
+    gen pre`i' = (periods_since_treatment == -`i' & RUSSIA == 1)
+}
+drop pre1
+
+// Generate post-treatment dummies
+forvalues i = 0/30 {
+    gen post`i' = (periods_since_treatment == `i' & RUSSIA == 1)
+}
+
+// Define panel structure
+egen PAIR_ID = group(DECLARANT_ISO PARTNER_ISO)
+xtset PAIR_ID DATE
+
+// Run regression
+reghdfe ln_TOTAL_VALUE pre* post*, absorb(PAIR_ID DATE) cluster(PAIR_ID)
+estimates store import_effects
+
+// Append import results to file
+file write myfile _n _n "IMPORT RESULTS:" _n _n
+file write myfile "Variable   Coef.   Std. Err.   t-stat   p-value   [95% Conf. Interval]" _n
+file write myfile "---------------------------------------------------------------" _n
+
+foreach var of varlist pre* post* {
+    local coef = _b[`var']
+    local se = _se[`var']
+    local t = _b[`var'] / _se[`var']
+    local p = 2 * ttail(e(df_r), abs(`t'))
+    local lb = `coef' - 1.96 * `se'
+    local ub = `coef' + 1.96 * `se'
+    file write myfile "`var'" _col(12) %9.4f (`coef') _col(26) %9.4f (`se') _col(38) %6.2f (`t') _col(47) %7.4f (`p') _col(57) %9.4f (`lb') _col(69) %9.4f (`ub') _n
+}
+file close myfile
+
+// Prepare data for import plot
+generate period_import = _n - 13 in 1/37
+generate effect_import = .
+generate ci_lower_import = .
+generate ci_upper_import = .
+
+local i = 1
+forvalues t = -12/-2 {
+    replace effect_import = _b[pre`=abs(`t')'] in `i'
+    replace ci_lower_import = effect_import - 1.96 * _se[pre`=abs(`t')'] in `i'
+    replace ci_upper_import = effect_import + 1.96 * _se[pre`=abs(`t')'] in `i'
+    local i = `i' + 1
+}
+forvalues t = 0/24 {
+    replace effect_import = _b[post`t'] in `=`t'+12'
+    replace ci_lower_import = effect_import - 1.96 * _se[post`t'] in `=`t'+12'
+    replace ci_upper_import = effect_import + 1.96 * _se[post`t'] in `=`t'+12'
+}
+
+// Plot import effects
+twoway (rarea ci_lower_import ci_upper_import period_import, color(gs12)) ///
+       (connected effect_import period_import, lcolor(red) mcolor(red) msymbol(circle)), ///
+       xline(0, lpattern(dash)) yline(0) ///
+       xlabel(-12(3)24) ylabel(-2(.5)1) ///
+       xtitle("Months since sanctions") ///
+       ytitle("Sanction effect (ln)") ///
+       title("Dynamic Effects of Sanctions on EU Imports from Russia") ///
+       legend(order(2 1) position(3))
+graph export "import_time_effect.jpg", replace
