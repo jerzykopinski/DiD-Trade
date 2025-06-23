@@ -1,0 +1,54 @@
+/******************************************************************************************
+* Description:
+* This script performs Difference-in-Differences (DiD) regressions to estimate the impact 
+* of trade sanctions on bilateral trade flows between countries. It uses yearly aggregated 
+* data and compares import and export flows separately. The treatment group is defined as 
+* trade with Russia after 2022.
+*
+* Note: File paths and identifiers have been anonymized for public sharing.
+******************************************************************************************/
+
+// === MODEL 1: EXPORTS ONLY (FLOW == 1) ===
+use "path_to_data/full_yearly_country_explanatory.dta", clear
+
+// Keep only export flows
+drop if FLOW == 2
+
+// Define treatment period (POST) and treatment group (RUSSIA)
+gen POST = Year >= 2022
+gen RUSSIA = PARTNER_ISO == "RU"
+gen TREATMENT = RUSSIA * POST
+
+// Create unique identifier for each country pair
+egen PAIR_ID = group(DECLARANT_ISO PARTNER_ISO)
+xtset PAIR_ID Year
+
+// Estimate DiD model with controls
+xtdidregress (ln_TOTAL_VALUE ln_DECLARANT_GDP ln_PARTNER_GDP ln_DECLARANT_POPULATION ln_PARTNER_POPULATION) ///
+              (TREATMENT), group(PAIR_ID) time(Year)
+eststo model4
+
+
+// === MODEL 2: IMPORTS ONLY (FLOW == 2) ===
+use "path_to_data/full_yearly_country_explanatory.dta", clear
+
+// Keep only import flows
+drop if FLOW == 1
+
+// Define treatment period and group again
+gen POST = Year >= 2022
+gen RUSSIA = PARTNER_ISO == "RU"
+gen TREATMENT = RUSSIA * POST
+
+// Create unique identifier and set panel structure
+egen PAIR_ID = group(DECLARANT_ISO PARTNER_ISO)
+xtset PAIR_ID Year
+
+// Estimate DiD model with controls
+xtdidregress (ln_TOTAL_VALUE ln_DECLARANT_GDP ln_PARTNER_GDP ln_DECLARANT_POPULATION ln_PARTNER_POPULATION) ///
+              (TREATMENT), group(PAIR_ID) time(Year)
+eststo model3
+
+
+// === OPTIONAL: Reload data for further analysis or diagnostics ===
+use "path_to_data/full_yearly_country_explanatory.dta", clear
