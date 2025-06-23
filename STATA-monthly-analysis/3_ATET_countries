@@ -1,0 +1,72 @@
+/******************************************************************************************
+* Description:
+* This script performs a Difference-in-Differences (DiD) analysis to estimate the impact 
+* of sanctions on trade values between countries. It loops through all partner countries 
+* and estimates the treatment effect (ATET) for each one individually. 
+* The results are exported in both TXT and CSV formats.
+
+******************************************************************************************/
+
+// Load the dataset (monthly, country-level aggregated trade data)
+use "path_to_data/full_monthly_country_aggregated.dta", clear
+
+// Create POST indicator for post-treatment period (from February 2022 onward)
+gen POST = 0
+replace POST = 1 if DATE >= tm(2022m2) 
+
+// Keep only import flows (FLOW == 2)
+keep if FLOW == 2
+
+// Create unique identifier for each country pair
+egen PAIR_ID = group(DECLARANT_ISO PARTNER_ISO)
+xtset PAIR_ID DATE
+
+// Extract list of unique partner countries
+levelsof PARTNER_ISO, local(countries)
+
+// Loop through each country to estimate individual treatment effects
+foreach country of local countries {
+    
+    // Display current country being processed
+    di "Processing country: `country'"
+    
+    // Define treatment group: country under sanctions
+    gen SANCTIONED = 0
+    replace SANCTIONED = 1 if PARTNER_ISO == "`country'"
+    gen TREATMENT = POST * SANCTIONED
+
+    // Estimate DiD model
+    quietly xtdidregress (ln_TOTAL_VALUE) (TREATMENT), group(PAIR_ID) time(DATE)
+    
+    // Store model results under country-specific name
+    estimates store m_`country'
+
+    // Extract and display key statistics (optional diagnostics)
+    local ATET_`country' = r(table)[1,1]
+    local se_`country' = r(table)[2,1]
+    local p_`country' = r(table)[4,1]
+    di "Saved results for `country' | ATET: `ATET_`country'' | SE: `se_`country'' | p: `p_`country''"
+
+    // Clean up temporary variables before next iteration
+    drop SANCTIONED TREATMENT
+}
+
+// Export results to TXT file
+esttab m_* using results_country_effects_EX.txt, replace ///
+    cells(b(star fmt(3)) p(fmt(3))) ///
+    label title("Estimated Sanction Effects by Country") ///
+    keep(r1vs0.TREATMENT) ///
+    varwidth(20) ///
+    alignment(c) ///
+    collabels(none) ///
+    mtitles("ATET")
+
+// Export results to CSV file (for Excel)
+esttab m_* using results_country_effects_EX.csv, replace ///
+    cells(b(star fmt(3)) p(fmt(3))) ///
+    label title("Excel Export") ///
+    keep(r1vs0.TREATMENT) ///
+    varwidth(20) ///
+    alignment(c) ///
+    collabels(none) ///
+    mtitles("ATET")
