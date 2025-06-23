@@ -1,0 +1,72 @@
+// ------------------------------------------------------------
+// HS-LEVEL TRADE ANALYSIS: EXPORTS & IMPORTS WITH RUSSIA
+// ------------------------------------------------------------
+
+// Set working directory (optional, replace with your path)
+cd "path_to_your_directory"
+
+// =======================
+// EXPORT ANALYSIS
+// =======================
+
+// Load annual export data (HS-level)
+use "path_to_data/full_monthly_goods_large_combined_filtered_eksport_ROCZNA.dta", clear
+
+// Rename variable for consistency
+rename ln_TOTAL_VALUE_y ln_TOTAL_VALUE
+
+// Create triple interaction term
+gen DDD = RUSSIA * POST * SANCTIONED
+
+// Generate unique identifier for country pair and HS code
+egen PAIR_ID = group(DECLARANT_ISO PARTNER_ISO KOD_HS)
+drop if missing(PAIR_ID)
+
+// Declare panel structure
+xtset PAIR_ID year
+
+// Model 1: Fixed effects by pair, year, and HS code
+reghdfe ln_TOTAL_VALUE RUSSIA POST SANCTIONED DDD, ///
+    absorb(PAIR_ID year KOD_HS) ///
+    vce(cluster PAIR_ID)
+estimates store eksport1_rok
+
+// Model 2: Fixed effects by HS code only
+reghdfe ln_TOTAL_VALUE RUSSIA POST SANCTIONED DDD, ///
+    absorb(KOD_HS) ///
+    vce(cluster PAIR_ID)
+estimates store eksport2_rok
+
+
+// =======================
+// IMPORT ANALYSIS
+// =======================
+
+// Load annual import data (HS-level)
+use "path_to_data/full_monthly_goods_large_combined_filtered_import_ROCZNA.dta", clear
+
+// Rename variable for consistency
+rename ln_TOTAL_VALUE_y ln_TOTAL_VALUE
+
+// Create triple interaction term
+gen DDD = RUSSIA * POST * SANCTIONED
+
+// Generate unique identifier for country pair and HS code
+egen PAIR_ID = group(DECLARANT_ISO PARTNER_ISO KOD_HS)
+drop if missing(PAIR_ID)
+
+// Declare panel structure
+xtset PAIR_ID year
+
+// Model 1: Fixed effects by pair, year, and HS code
+reghdfe ln_TOTAL_VALUE RUSSIA POST SANCTIONED DDD, ///
+    absorb(PAIR_ID year KOD_HS) ///
+    vce(cluster PAIR_ID)
+estimates store imports1_rok
+
+// Model 2: Fixed effects by HS code only
+reghdfe ln_TOTAL_VALUE RUSSIA POST SANCTIONED DDD, ///
+    absorb(KOD_HS) ///
+    vce(cluster PAIR_ID)
+estimates store imports2_rok
+
