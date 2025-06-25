@@ -1,9 +1,13 @@
-#Loop for accesing the Easy Comext api and downloading bulk data
+# Easy Comext Bulk Data Downloader and Processor
+# Description: This script downloads, extracts, and processes bulk trade data from the Easy Comext API.
+# WARNING: Running this script may take up to few hours of downloading and processing. 
 
+# Clean environment
 rm(list = ls())
-if(!is.null(dev.list())) dev.off()
-cat("\014")
+if (!is.null(dev.list())) dev.off()
+cat("\014")  # Clear console
 
+# Load required libraries
 library(httr)
 library(readr)
 library(haven)
@@ -13,151 +17,94 @@ library(dplyr)
 library(arrow)
 library(crayon)
 
-setwd("")
+# Set working directory and create output folder
 output_dir <- "temp_comext_files"
-dir.create(output_dir, showWarnings = FALSE) 
-getwd()
+dir.create(output_dir, showWarnings = FALSE)
 
-#1 petla na YYYYMM
-
+# Generate list of YYYYMM dates from 2010 to September 2024. Change parameters of years and months for desired data.
 months <- sprintf("%02d", 1:12)
 years <- 2010:2024
-
-dates <- c()
-for (year in years) {
-  for (month in months) {
-    dates <- c(dates, paste0(year, month))
-  }
-}
+dates <- unlist(lapply(years, function(y) paste0(y, months)))
 dates <- dates[dates <= "202409"]
 
-#2 petla na pobieranie
-
+# Define base URL for downloading
 base_url <- "https://ec.europa.eu/eurostat/api/dissemination/files/?sort=1&file=comext%2FCOMEXT_DATA%2FPRODUCTS%2F"
 
+# Download .7z files for each date
 for (date in dates) {
   file <- paste0("full", date, ".7z")
   url <- paste0(base_url, file)
   download_path <- file.path(output_dir, file)
   options(timeout = 500)
   GET(url, write_disk(download_path, overwrite = TRUE))
-  cat("Pobrano:", date, "\n")
+  cat("Downloaded:", date, "\n")
 }
 
-#3 petla na wypakowanie i łączenie (rozbita na 2)
-
-final_data <- list() 
-
-for(date in dates) {
+# Extract and load data into a list
+final_data <- list()
+for (date in dates) {
   file <- paste0("full", date, ".7z")
   download_path <- file.path(output_dir, file)
   extracted_files <- archive_extract(download_path, dir = output_dir)
   data <- read_delim(file.path(output_dir, extracted_files), delim = ",", col_names = TRUE)
   final_data[[date]] <- data
-  cat("Wypakowano:", date, "\n")
+  cat("Extracted:", date, "\n")
 }
 
-for(date in dates_to_process) {
-  file <- paste0("full", date, ".7z")
-  download_path <- file.path(output_dir, file)
-  archive_extract(download_path, dir = output_dir)
-  cat("Wypakowano:", date, "\n")
-}
-
-
-for(date in dates) {
-  extracted_file <- paste0("full", date, ".dat")
-  data <- read_delim(file.path(output_dir, extracted_file), delim = ",", col_names = TRUE)
-  final_data[[date]] <- data
-  cat(green("Załadowano:"), date, "\n")
-}
-
-
+# Merge all data into one data frame
 merged_data <- bind_rows(final_data)
-#print(head(merged_data))
 
-#4 zapisanie pliku
-
+# Save full dataset to Parquet
 write_parquet(merged_data, "full_data.parquet")
-loaded_data <- read_parquet("full_data.parquet")
-essential_data <- read_parquet("full_data.parquet", col_select = c("DECLARANT", "DECLARANT_ISO", "PARTNER_ISO", "TRADE_TYPE", "PRODUCT_NC", "FLOW", "PERIOD", "VALUE_IN_EUROS"))
 
+# Load essential columns only
+essential_data <- read_parquet("full_data.parquet", col_select = c(
+  "DECLARANT", "DECLARANT_ISO", "PARTNER_ISO", "TRADE_TYPE",
+  "PRODUCT_NC", "FLOW", "PERIOD", "VALUE_IN_EUROS"
+))
 
-#output_rds <- file.path("", "full_data.rds")
-#saveRDS(merged_data, output_rds)
-#print(paste("Dane zapisano do pliku RDS w lokalizacji:", output_rds))
-#loaded_data <- readRDS("full_data.rds")
-
-# Funkcja do przetwarzania segmentu dat
+# Function to process a segment of dates and save to Parquet
 process_dates <- function(dates_segment, output_file) {
   segment_data <- list()
   for (date in dates_segment) {
     extracted_file <- paste0("full", date, ".dat")
-    # Wczytanie tylko wybranych kolumn, by zaoszczędzić pamięć
     data <- read_delim(
       file.path(output_dir, extracted_file),
       delim = ",",
       col_names = TRUE,
-      col_types = cols(
-        PRODUCT_BEC = col_character() # Wymuszenie typu kolumny
-      )
+      col_types = cols(PRODUCT_BEC = col_character())  # Force column type
     )
-    
     segment_data[[date]] <- data
-    cat(green("Załadowano:"), date, "\n")
-    
-    # Regularne zwalnianie pamięci
-    gc()
+    cat(green("Loaded:"), date, "\n")
+    gc()  # Free memory
   }
-  
-  # Po przetworzeniu segmentu zapisanie do pliku Parquet i zwolnienie pamięci
-  segment_data_df <- bind_rows(segment_data) # Łączenie listy w jedną ramkę danych
-  arrow::write_parquet(segment_data_df, output_file)
+  segment_data_df <- bind_rows(segment_data)
+  write_parquet(segment_data_df, output_file)
   rm(segment_data, segment_data_df)
   gc()
-  cat("Zapisano dane segmentu do pliku Parquet:", output_file, "\n")
+  cat("Segment saved to:", output_file, "\n")
 }
 
-# Podział dat na 12 segmentów (co roku)
-segments <- list(
-  dates[dates >= "201001" & dates < "201101"],
-  dates[dates >= "201101" & dates < "201201"],
-  dates[dates >= "201201" & dates < "201301"],
-  dates[dates >= "201301" & dates < "201401"],
-  dates[dates >= "201401" & dates < "201501"],
-  dates[dates >= "201501" & dates < "201601"],
-  dates[dates >= "201601" & dates < "201701"],
-  dates[dates >= "201701" & dates < "201801"],
-  dates[dates >= "201801" & dates < "201901"],
-  dates[dates >= "201901" & dates < "202001"],
-  dates[dates >= "202001" & dates < "202101"],
-  dates[dates >= "202101" & dates < "202201"],
-  dates[dates >= "202201" & dates < "202301"],
-  dates[dates >= "202301" & dates < "202401"],
-  dates[dates >= "202401" & dates < "202409"]
-)
+# Split dates into yearly segments
+segments <- split(dates, ceiling(seq_along(dates) / 12))
 
-# Przetwarzanie każdego segmentu
+# Process each segment and save to separate Parquet files
 for (i in seq_along(segments)) {
   output_file <- file.path(output_dir, paste0("segment_", i, ".parquet"))
   process_dates(segments[[i]], output_file)
 }
 
-
-# Ścieżka do folderu z plikami Parquet
-output_dir <- ""
+# Load and merge all segment files
 parquet_files <- list.files(output_dir, pattern = "segment_.*\\.parquet$", full.names = TRUE)
 parquet_files <- parquet_files[order(as.numeric(gsub(".*segment_(\\d+)\\.parquet$", "\\1", parquet_files)))]
-print(parquet_files)
 
 merged_data <- lapply(parquet_files, function(file) {
-  cat("Wczytywanie pliku:", file, "\n")
+  cat("Reading file:", file, "\n")
   read_parquet(file)
 }) %>%
   bind_rows()
 
+# Save final merged dataset
 final_output <- file.path(output_dir, "full_data.parquet")
 write_parquet(merged_data, final_output)
-
-cat("Wszystkie dane zapisano do pliku:", final_output, "\n")
-
+cat("All data saved to:", final_output, "\n")
