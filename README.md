@@ -10,9 +10,9 @@ This repository contains the code and resources used in the master's thesis titl
 
 ## Project Overview
 
-This study investigates the impact of economic sanctions imposed in the years 2022-2024 on trade between EU countries and Russia. Using the **Difference-in-Differences (DiD)** methodology and trade data from **Eurostat Comext**, the analysis focuses on the direct effects of sanctions on trade flows.
+This study investigates the impact of economic sanctions imposed in the years 2022-2024 on trade between EU countries and Russia. Using the **Difference-in-Differences (DiD)** methodology and trade data from **Eurostat EasyComext**, the analysis focuses on the direct effects of sanctions on trade flows of EU countries. Study further investigates shifts in EU countries trade patterns and the circumvention of sanctions.
 
-Code was compiled using **R** and **STATA**. Data comes from the public **Eurostat COMEXT** database.
+Code was compiled using **R** and **STATA**. Data comes from the public Eurostat database (https://ec.europa.eu/eurostat/comext/newxtweb/).
 
 ---
 
