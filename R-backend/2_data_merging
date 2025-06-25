@@ -1,32 +1,36 @@
-#Loop for unpacking and merging the bulk data from COMEXT
+# COMEXT Bulk Data Merger Script
+# Description: This script merges multiple Parquet files containing trade data into a single dataset.
 
+# Load required libraries
 library(arrow)
 library(data.table)
 
+# Clean environment
 rm(list = ls())
-if(!is.null(dev.list())) dev.off()
-cat("\014")
-gc()
+if (!is.null(dev.list())) dev.off()
+cat("\014")  # Clear console
+gc()         # Run garbage collection
 
-# Ścieżki do folderów (zmień na własne lokalizacje)
+# Define input and output paths (update with your actual paths)
 input_directory <- "path/to/your/database"
 output_file <- "path/to/your/full_database.parquet"
 
+# List and sort all segment files
 files <- list.files(input_directory, pattern = "segment_\\d+\\.parquet$", full.names = TRUE)
 file_numbers <- as.numeric(gsub(".*segment_(\\d+)\\.parquet$", "\\1", files))
 files <- files[order(file_numbers)]
 
-# Zmienna do sprawdzenia, czy plik wyjściowy istnieje
+# Flag to check if output file already exists
 output_exists <- FALSE
 
-# Przetwarzanie każdego pliku
+# Process and merge each file
 for (file in files) {
   cat("Processing file:", basename(file), "\n")
   
-  # Wczytaj aktualny plik Parquet
+  # Read current Parquet file
   current_data <- read_parquet(file)
   
-  # Zapisz lub połącz z plikiem wyjściowym
+  # Write or append to the output file
   if (!output_exists) {
     write_parquet(current_data, output_file)
     output_exists <- TRUE
@@ -36,11 +40,11 @@ for (file in files) {
     write_parquet(combined_data, output_file)
   }
   
+  # Clean up memory
   rm(current_data)
   gc()
   
   cat("Completed processing:", basename(file), "\n")
 }
 
-cat("Merger completed. Output saved to:", output_file, "\n")
-
+cat("Merge completed. Output saved to:", output_file, "\n")
