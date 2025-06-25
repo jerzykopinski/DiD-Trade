@@ -1,4 +1,5 @@
-This folder contains files written in STATA and R programming languages. The included files are representative and exemplary only; they do not contain the full code used in my thesis. Their purpose is to guide and illustrate Difference-in-Differences (DiD) modeling approaches in STATA. Please treat this code as inspiration, not as a complete or ready-to-use solution.
+This folder contains files written in STATA and R programming languages. The included files are representative and exemplary only; they do not contain the full code used in my thesis. Their purpose is to guide and illustrate Difference-in-Differences (DiD) modeling approaches in STATA. 
+Please treat this code as inspiration, not as a complete or ready-to-use solution.
 
 1_data_sourcing – contains instructions on how to extract data from a previously acquired database and split it into chunks for estimation
 2_monthly_effects – a simple, exemplary DiD regression demonstrating how to set up a DiD regression environment without additional effects
