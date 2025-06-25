@@ -1,0 +1,6 @@
+STATA-time-effects/
+Scripts for conducting event study analyses to estimate the dynamic effects of sanctions over time. Estimates the monthly impact of sanctions on trade flows with Russia using an event-time framework.
+
+Separately analyzes exports to and imports from Russia.
+Constructs pre- and post-treatment dummy variables relative to February 2022.
+Uses reghdfe with fixed effects and clustered standard errors.
