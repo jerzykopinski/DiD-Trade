@@ -42,7 +42,7 @@ The final dataset contains over **650 million monthly observations**, each uniqu
    Files are extracted using the `archive` package and read into R using `readr::read_delim()`.
 
 4. **Merging & Optimizing**  
-   All monthly datasets are merged using `dplyr::bind_rows()` and saved in efficient `.parquet` format using the `arrow` package.
+   All monthly datasets are merged using `dplyr::bind_rows()` and saved in `.parquet` format using the `arrow` package.
 
 5. **Cleaning & Structuring**  
    Data is cleaned and filtered using `dplyr`, `tidyr`, and `stringr` to ensure consistency and prepare it for econometric analysis.
