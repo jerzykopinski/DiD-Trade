@@ -1,0 +1,12 @@
+Scripts for conducting HS-level (Harmonized System) trade analysis using a Triple Difference (DDD) approach.
+
+Analyzes the impact of sanctions on trade at the product level (HS codes), distinguishing between sanctioned and non-sanctioned goods.
+Constructs a triple interaction term: RUSSIA × POST × SANCTIONED.
+Estimates models with various fixed effects:
+Model 1: Fixed effects for country-pair, year, and HS code.
+Model 2: Fixed effects for HS code only.
+
+Separate models are estimated for exports and imports.
+Uses reghdfe with clustered standard errors.
+
+⚠️ Note: These scripts are computationally intensive and may take several hours to run on large datasets.
