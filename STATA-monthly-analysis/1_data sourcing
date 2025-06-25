@@ -5,7 +5,6 @@
 # as individual Parquet files. It then merges all yearly files into a single 
 # dataset and optionally exports it to STATA (.dta) format.
 #
-# Note: File paths have been anonymized for public sharing.
 ################################################################################
 library(arrow)
 library(dplyr)
